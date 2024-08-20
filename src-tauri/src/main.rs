@@ -3,8 +3,13 @@
 
 use serde::Serialize;
 use std::{fs, str::FromStr, sync::Mutex};
+use tauri::Manager;
 
-static KNOWN_FILE: Mutex<String> = Mutex::new(String::new());
+#[derive(Default)]
+struct Store {
+    unknown_file_content: String,
+    index: Mutex<usize>,
+}
 
 #[derive(Serialize, Default)]
 struct Morph {
@@ -28,15 +33,13 @@ impl FromStr for Morph {
 
 fn main() {
     tauri::Builder::default()
-        .setup(|_app| {
+        .setup(|app| {
             let file_content = fs::read_to_string("../public/es-freq.csv")?;
-            *KNOWN_FILE.lock()? = file_content.to_string();
 
-            // let morph_list = file_content
-            //     .split("\n")
-            //     .skip(1)
-            //     .map(|text| Morph::from_str(text).unwrap_or_default());
-
+            app.manage(Store {
+                unknown_file_content: file_content,
+                index: Mutex::new(0),
+            });
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![next_morph])
@@ -45,7 +48,19 @@ fn main() {
 }
 
 #[tauri::command]
-fn next_morph() -> Option<Morph> {
-    let file_content = KNOWN_FILE.lock().ok()?;
-    Some(Morph::default())
+fn next_morph(state: tauri::State<Store>) -> Option<Morph> {
+    let Store {
+        unknown_file_content,
+        index,
+    } = state.inner();
+
+    let mut num = index.lock().unwrap();
+    *num += 1;
+
+    let mut morph_list = unknown_file_content
+        .split("\n")
+        .skip(*num)
+        .map(|text| Morph::from_str(text).unwrap_or_default());
+
+    morph_list.next()
 }

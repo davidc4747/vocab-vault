@@ -4,6 +4,7 @@
     "compilerOptions": {
         "target": "esnext",
         "moduleResolution": "Node",
+        "module": "ESNext",
 
         "allowJs": true,
         "checkJs": true,

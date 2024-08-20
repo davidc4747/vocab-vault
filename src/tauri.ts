@@ -7,9 +7,5 @@ type Morph = {
 
 export async function nextMorph(): Promise<Morph> {
     const data = await invoke("next_morph");
-
-    return {
-        lemma: "",
-        inflection: "",
-    };
+    return data as Morph;
 }
