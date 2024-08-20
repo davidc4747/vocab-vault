@@ -1,6 +1,6 @@
 import { invoke } from "@tauri-apps/api/tauri";
 
-type Morph = {
+export type Morph = {
     lemma: string;
     inflection: string;
 };
