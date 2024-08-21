@@ -1,4 +1,4 @@
-import { Morph, nextMorph } from "./tauri";
+import { Morph, nextMorph, translate } from "./tauri";
 
 /* ======================== *\
     #State
@@ -6,6 +6,7 @@ import { Morph, nextMorph } from "./tauri";
 
 type State = {
     currMorph: Morph;
+    english: string;
     questionState: QuestionState;
 };
 enum QuestionState {
@@ -13,15 +14,21 @@ enum QuestionState {
     BACK,
 }
 
-let state = {
-    currMorph: await nextMorph(),
-    questionState: QuestionState.FRONT,
-};
+let state: State = await init();
 render(state);
 
 /* ======================== *\
     #Actions
 \* ======================== */
+
+async function init(): Promise<State> {
+    const currMorph = await nextMorph();
+    return {
+        currMorph,
+        english: (await translate(currMorph.inflection)) ?? "",
+        questionState: QuestionState.FRONT,
+    };
+}
 
 async function answer(state: State, isCorrect: boolean): Promise<State> {
     // TODO: Mark the value as correct, or incorrect.
@@ -29,10 +36,12 @@ async function answer(state: State, isCorrect: boolean): Promise<State> {
     const morph = await nextMorph();
 
     // TODO: use DeepL to get the transaltion of the word.
+    const english = (await translate(morph.inflection)) ?? "";
 
     return {
         ...state,
         currMorph: morph,
+        english,
         questionState: QuestionState.FRONT,
     };
 }
@@ -50,20 +59,29 @@ function showAnswer(state: State): State {
 
 document
     .querySelector<HTMLButtonElement>(".btn-show-answer")
-    ?.addEventListener("click", () => render(showAnswer(state)));
+    ?.addEventListener("click", () => {
+        state = showAnswer(state);
+        render(state);
+    });
 
 document
     .querySelector<HTMLButtonElement>(".btn-incorrect")
-    ?.addEventListener("click", async () => render(await answer(state, false)));
+    ?.addEventListener("click", async () => {
+        state = await answer(state, false);
+        render(state);
+    });
 document
     .querySelector<HTMLButtonElement>(".btn-correct")
-    ?.addEventListener("click", async () => render(await answer(state, true)));
+    ?.addEventListener("click", async () => {
+        state = await answer(state, true);
+        render(state);
+    });
 
 /* ======================== *\
     #Render
 \* ======================== */
 
-function render({ currMorph, questionState }: State): void {
+function render({ currMorph, questionState, ...state }: State): void {
     document.querySelector(".raw")?.replaceChildren(JSON.stringify(currMorph));
     switch (questionState) {
         case QuestionState.FRONT:
@@ -87,7 +105,11 @@ function render({ currMorph, questionState }: State): void {
             break;
         case QuestionState.BACK:
             // Show Answer
-            document.querySelector(".english")?.classList.remove("hidden");
+            const englishElm = document.querySelector(".english");
+            if (englishElm) {
+                englishElm.replaceChildren(state.english);
+                englishElm.classList.remove("hidden");
+            }
 
             // Display the appropriate Buttons
             document.querySelector(".btn-show-answer")?.classList.add("hidden");

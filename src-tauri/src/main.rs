@@ -1,7 +1,8 @@
 // Prevents additional console window on Windows in release, DO NOT REMOVE!!
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
+use serde_json::{json, Value};
 use std::{fs, str::FromStr, sync::Mutex};
 use tauri::Manager;
 
@@ -31,6 +32,10 @@ impl FromStr for Morph {
     }
 }
 
+/* ======================== *\
+    #Main
+\* ======================== */
+
 fn main() {
     tauri::Builder::default()
         .setup(|app| {
@@ -42,7 +47,7 @@ fn main() {
             });
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![next_morph])
+        .invoke_handler(tauri::generate_handler![next_morph, translate])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
@@ -63,4 +68,55 @@ fn next_morph(state: tauri::State<Store>) -> Option<Morph> {
         .map(|text| Morph::from_str(text).unwrap_or_default());
 
     morph_list.next()
+}
+
+#[derive(Deserialize)]
+struct DeepLResponse {
+    translations: Vec<Translation>,
+}
+#[derive(Deserialize)]
+struct Translation {
+    detected_source_language: String,
+    text: String,
+}
+
+#[tauri::command]
+async fn translate(word: String) -> Option<String> {
+    // Get API_KEY
+    let json_file = fs::read_to_string("../secret.json").ok()?;
+    let json: Value = serde_json::from_str(&json_file).ok()?;
+    let deepl_api_key = json["DEEPL_API_KEY"].as_str()?;
+
+    let body = json!({
+        "text": [word],
+        "source_lang": "ES",
+        "target_lang": "EN",
+    })
+    .to_string();
+
+    // Send the Request
+    let client = reqwest::Client::new();
+    let res = client
+        .post("https://api-free.deepl.com/v2/translate")
+        .header("Content-Type", "application/json")
+        .header("Authorization", format!("DeepL-Auth-Key {deepl_api_key}"))
+        .body(body)
+        // .json(json!({
+        //     "text": [word],
+        //     "source_lang": "EN",
+        //     "target_lang": "ES",
+        // }))
+        .send()
+        .await
+        .ok()?;
+
+    let translations = res
+        .json::<DeepLResponse>()
+        .await
+        .ok()?
+        .translations
+        .pop()?
+        .text;
+
+    Some(translations)
 }
