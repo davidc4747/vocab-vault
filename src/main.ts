@@ -14,21 +14,19 @@ enum QuestionState {
     BACK,
 }
 
-let state: State = await init();
-render(state);
-
-/* ======================== *\
-    #Actions
-\* ======================== */
-
-async function init(): Promise<State> {
+let state: State = await (async function (): Promise<State> {
     const currMorph = await nextMorph();
     return {
         currMorph,
         english: (await translate(currMorph.inflection)) ?? "",
         questionState: QuestionState.FRONT,
     };
-}
+})();
+render(state);
+
+/* ======================== *\
+    #Actions
+\* ======================== */
 
 async function answer(state: State, isCorrect: boolean): Promise<State> {
     // TODO: Mark the value as correct, or incorrect.
@@ -57,66 +55,73 @@ function showAnswer(state: State): State {
     #Events
 \* ======================== */
 
-document
-    .querySelector<HTMLButtonElement>(".btn-show-answer")
-    ?.addEventListener("click", () => {
+let rawElem: Element | null,
+    lemmaElem: Element | null,
+    inflectionElem: Element | null,
+    englishElem: Element | null,
+    showAnswerBtn: HTMLButtonElement | null,
+    correctBtn: HTMLButtonElement | null,
+    incorrectBtn: HTMLButtonElement | null;
+window.addEventListener("DOMContentLoaded", function (): void {
+    // Main
+    rawElem = document.body.querySelector(".raw");
+    lemmaElem = document.querySelector(".lemma");
+    inflectionElem = document.querySelector(".inflection");
+    englishElem = document.querySelector(".english");
+
+    // Buttons
+    showAnswerBtn =
+        document.querySelector<HTMLButtonElement>(".btn-show-answer");
+    correctBtn = document.querySelector<HTMLButtonElement>(".btn-incorrect");
+    incorrectBtn = document.querySelector<HTMLButtonElement>(".btn-correct");
+
+    // Events
+    showAnswerBtn?.addEventListener("click", () => {
         state = showAnswer(state);
         render(state);
     });
 
-document
-    .querySelector<HTMLButtonElement>(".btn-incorrect")
-    ?.addEventListener("click", async () => {
+    incorrectBtn?.addEventListener("click", async () => {
         state = await answer(state, false);
         render(state);
     });
-document
-    .querySelector<HTMLButtonElement>(".btn-correct")
-    ?.addEventListener("click", async () => {
+    correctBtn?.addEventListener("click", async () => {
         state = await answer(state, true);
         render(state);
     });
+});
 
 /* ======================== *\
     #Render
 \* ======================== */
 
 function render({ currMorph, questionState, ...state }: State): void {
-    document.querySelector(".raw")?.replaceChildren(JSON.stringify(currMorph));
+    rawElem?.replaceChildren(JSON.stringify(currMorph));
     switch (questionState) {
         case QuestionState.FRONT:
             // Display the Morph
-            document
-                .querySelector(".lemma")
-                ?.replaceChildren(`(${currMorph.lemma})`);
-            document
-                .querySelector(".inflection")
-                ?.replaceChildren(currMorph.inflection);
+            lemmaElem?.replaceChildren(`(${currMorph.lemma})`);
+            inflectionElem?.replaceChildren(currMorph.inflection);
 
             // Hide Answer
-            document.querySelector(".english")?.classList.add("hidden");
+            englishElem?.classList.add("hidden");
 
             // Display the appropriate Buttons
-            document
-                .querySelector(".btn-show-answer")
-                ?.classList.remove("hidden");
-            document.querySelector(".btn-incorrect")?.classList.add("hidden");
-            document.querySelector(".btn-correct")?.classList.add("hidden");
+            showAnswerBtn?.classList.remove("hidden");
+            incorrectBtn?.classList.add("hidden");
+            correctBtn?.classList.add("hidden");
             break;
         case QuestionState.BACK:
             // Show Answer
-            const englishElm = document.querySelector(".english");
-            if (englishElm) {
-                englishElm.replaceChildren(state.english);
-                englishElm.classList.remove("hidden");
+            if (englishElem) {
+                englishElem.replaceChildren(state.english);
+                englishElem.classList.remove("hidden");
             }
 
             // Display the appropriate Buttons
-            document.querySelector(".btn-show-answer")?.classList.add("hidden");
-            document
-                .querySelector(".btn-incorrect")
-                ?.classList.remove("hidden");
-            document.querySelector(".btn-correct")?.classList.remove("hidden");
+            showAnswerBtn?.classList.add("hidden");
+            incorrectBtn?.classList.remove("hidden");
+            correctBtn?.classList.remove("hidden");
             break;
 
         default:
