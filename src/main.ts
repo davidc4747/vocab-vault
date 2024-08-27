@@ -1,4 +1,4 @@
-import { Morph, nextMorph, translate } from "./tauri";
+import { Morph, nextMorph } from "./tauri";
 
 /* ======================== *\
     #State
@@ -6,7 +6,6 @@ import { Morph, nextMorph, translate } from "./tauri";
 
 type State = {
     currMorph: Morph;
-    english: string;
     questionState: QuestionState;
 };
 enum QuestionState {
@@ -14,15 +13,7 @@ enum QuestionState {
     BACK,
 }
 
-let state: State = await (async function (): Promise<State> {
-    const currMorph = await nextMorph();
-    return {
-        currMorph,
-        english: (await translate(currMorph.inflection)) ?? "",
-        questionState: QuestionState.FRONT,
-    };
-})();
-render(state);
+let state: State;
 
 /* ======================== *\
     #Actions
@@ -33,13 +24,9 @@ async function answer(state: State, isCorrect: boolean): Promise<State> {
     // TODO: Send it back to Rust.
     const morph = await nextMorph();
 
-    // TODO: use DeepL to get the transaltion of the word.
-    const english = (await translate(morph.inflection)) ?? "";
-
     return {
         ...state,
         currMorph: morph,
-        english,
         questionState: QuestionState.FRONT,
     };
 }
@@ -52,7 +39,7 @@ function showAnswer(state: State): State {
 }
 
 /* ======================== *\
-    #Events
+    #Init
 \* ======================== */
 
 let rawElem: Element | null,
@@ -62,7 +49,7 @@ let rawElem: Element | null,
     showAnswerBtn: HTMLButtonElement | null,
     correctBtn: HTMLButtonElement | null,
     incorrectBtn: HTMLButtonElement | null;
-window.addEventListener("DOMContentLoaded", function (): void {
+window.addEventListener("DOMContentLoaded", async function (): Promise<void> {
     // Main
     rawElem = document.body.querySelector(".raw");
     lemmaElem = document.querySelector(".lemma");
@@ -72,10 +59,13 @@ window.addEventListener("DOMContentLoaded", function (): void {
     // Buttons
     showAnswerBtn =
         document.querySelector<HTMLButtonElement>(".btn-show-answer");
-    correctBtn = document.querySelector<HTMLButtonElement>(".btn-incorrect");
-    incorrectBtn = document.querySelector<HTMLButtonElement>(".btn-correct");
+    correctBtn = document.querySelector<HTMLButtonElement>(".btn-correct");
+    incorrectBtn = document.querySelector<HTMLButtonElement>(".btn-incorrect");
 
-    // Events
+    /* ------------------------ *\
+        #Events
+    \* ------------------------ */
+
     showAnswerBtn?.addEventListener("click", () => {
         state = showAnswer(state);
         render(state);
@@ -89,13 +79,26 @@ window.addEventListener("DOMContentLoaded", function (): void {
         state = await answer(state, true);
         render(state);
     });
+
+    /* ------------------------ *\
+        # Initialize State
+    \* ------------------------ */
+
+    state = await (async function (): Promise<State> {
+        const currMorph = await nextMorph();
+        return {
+            currMorph,
+            questionState: QuestionState.FRONT,
+        };
+    })();
+    render(state);
 });
 
 /* ======================== *\
     #Render
 \* ======================== */
 
-function render({ currMorph, questionState, ...state }: State): void {
+function render({ currMorph, questionState }: State): void {
     rawElem?.replaceChildren(JSON.stringify(currMorph));
     switch (questionState) {
         case QuestionState.FRONT:
@@ -113,8 +116,8 @@ function render({ currMorph, questionState, ...state }: State): void {
             break;
         case QuestionState.BACK:
             // Show Answer
-            if (englishElem) {
-                englishElem.replaceChildren(state.english);
+            if (englishElem && currMorph.english) {
+                englishElem.replaceChildren(currMorph.english);
                 englishElem.classList.remove("hidden");
             }
 
