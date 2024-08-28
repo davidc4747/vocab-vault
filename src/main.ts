@@ -9,8 +9,8 @@ type State = {
     questionState: QuestionState;
 };
 enum QuestionState {
-    FRONT,
-    BACK,
+    FRONT = "front",
+    BACK = "back",
 }
 
 let state: State;
@@ -43,17 +43,17 @@ function showAnswer(state: State): State {
 \* ======================== */
 
 let rawElem: Element | null,
-    lemmaElem: Element | null,
-    inflectionElem: Element | null,
+    mainElem: Element | null,
+    spanishElem: Element | null,
     englishElem: Element | null,
     showAnswerBtn: HTMLButtonElement | null,
     correctBtn: HTMLButtonElement | null,
     incorrectBtn: HTMLButtonElement | null;
 window.addEventListener("DOMContentLoaded", async function (): Promise<void> {
     // Main
+    mainElem = document.body.querySelector(".main");
     rawElem = document.body.querySelector(".raw");
-    lemmaElem = document.querySelector(".lemma");
-    inflectionElem = document.querySelector(".inflection");
+    spanishElem = document.querySelector(".spanish");
     englishElem = document.querySelector(".english");
 
     // Buttons
@@ -100,14 +100,15 @@ window.addEventListener("DOMContentLoaded", async function (): Promise<void> {
 
 function render({ currMorph, questionState }: State): void {
     rawElem?.replaceChildren(JSON.stringify(currMorph));
+    if (mainElem) mainElem.className = `main--${questionState}`;
     switch (questionState) {
         case QuestionState.FRONT:
             // Display the Morph
-            lemmaElem?.replaceChildren(`(${currMorph.lemma})`);
-            inflectionElem?.replaceChildren(currMorph.inflection);
+            spanishElem?.replaceChildren(currMorph.inflection);
+            spanishElem?.classList.remove("spanish--back");
 
             // Hide Answer
-            englishElem?.classList.add("hidden");
+            englishElem?.classList.remove("english--back");
 
             // Display the appropriate Buttons
             showAnswerBtn?.classList.remove("hidden");
@@ -115,10 +116,12 @@ function render({ currMorph, questionState }: State): void {
             correctBtn?.classList.add("hidden");
             break;
         case QuestionState.BACK:
+            spanishElem?.classList.add("spanish--back");
+
             // Show Answer
             if (englishElem && currMorph.english) {
                 englishElem.replaceChildren(currMorph.english);
-                englishElem.classList.remove("hidden");
+                englishElem?.classList.add("english--back");
             }
 
             // Display the appropriate Buttons
