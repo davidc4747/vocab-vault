@@ -29,7 +29,7 @@
                 "icons/icon.icns",
                 "icons/icon.ico"
             ],
-            "identifier": "net.davidchung.freq-selector",
+            "identifier": "davidchung.freq-selector",
             "longDescription": "",
             "macOS": {
                 "entitlements": null,

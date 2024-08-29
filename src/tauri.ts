@@ -6,7 +6,7 @@ export type Morph = {
     english: string | null;
 };
 
-export async function nextMorph(): Promise<Morph> {
-    const data = await invoke("next_morph");
+export async function answerCard(isCorrect: boolean): Promise<Morph> {
+    const data = await invoke("answer", { isCorrect });
     return data as Morph;
 }

@@ -1,4 +1,4 @@
-import { Morph, nextMorph } from "./tauri";
+import { Morph, answerCard } from "./tauri";
 
 /* ======================== *\
     #State
@@ -22,7 +22,7 @@ let state: State;
 async function answer(state: State, isCorrect: boolean): Promise<State> {
     // TODO: Mark the value as correct, or incorrect.
     // TODO: Send it back to Rust.
-    const morph = await nextMorph();
+    const morph = await answerCard(isCorrect);
 
     return {
         ...state,
@@ -85,7 +85,7 @@ window.addEventListener("DOMContentLoaded", async function (): Promise<void> {
     \* ------------------------ */
 
     state = await (async function (): Promise<State> {
-        const currMorph = await nextMorph();
+        const currMorph = await answerCard(false);
         return {
             currMorph,
             questionState: QuestionState.FRONT,

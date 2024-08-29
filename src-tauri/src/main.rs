@@ -6,6 +6,9 @@ mod morph;
 
 use morph::Morph;
 use serde::Deserialize;
+use std::fs::OpenOptions;
+use std::io::prelude::Write;
+use std::path::PathBuf;
 use std::str::FromStr;
 use std::thread;
 use std::{fs, sync::Mutex};
@@ -61,9 +64,9 @@ fn main() {
             morph_list: morph_list,
             index: Mutex::new(0),
         })
-        .invoke_handler(tauri::generate_handler![next_morph])
+        .invoke_handler(tauri::generate_handler![answer])
         .run(tauri::generate_context!())
-        .expect("error while running tauri application")
+        .expect("error while running tauri application");
 }
 
 /* ======================== *\
@@ -71,11 +74,16 @@ fn main() {
 \* ======================== */
 
 #[tauri::command]
-fn next_morph(state: tauri::State<Store>, app_handle: tauri::AppHandle) -> Option<Morph> {
-    // Start Child Thread translate the next untranslated word
+fn answer(
+    state: tauri::State<Store>,
+    app_handle: tauri::AppHandle,
+    is_correct: bool,
+) -> Option<Morph> {
+    // Start Child Thread translate the next untranslated word in the background
+    let handle = app_handle.app_handle();
     thread::spawn(move || {
-        let ApiKey(key) = app_handle.state::<ApiKey>().inner();
-        let state = app_handle.state::<Store>();
+        let ApiKey(key) = handle.state::<ApiKey>().inner();
+        let state = handle.state::<Store>();
 
         // find the next non-translated word
         let found = state
@@ -94,11 +102,23 @@ fn next_morph(state: tauri::State<Store>, app_handle: tauri::AppHandle) -> Optio
         }
     });
 
-    // Send back the next morph with a translation
+    // Save the morph to the correct file based on how they answered
     let mut index = state.index.lock().ok()?;
-    let next = state.morph_list.get(*index)?.lock().ok()?.clone();
+    if *index > 0 {
+        let previous_morph = state.morph_list.get(*index - 1)?.lock().ok()?.clone();
+        let app_data_dir = app_handle.path_resolver().app_data_dir()?;
+        let filename = if is_correct {
+            "known.csv"
+        } else {
+            "unknown.csv"
+        };
+        update_morph_file(app_data_dir, filename, previous_morph);
+    }
+
+    // Give them anther morph to review
+    let next_morph = state.morph_list.get(*index)?.lock().ok()?.clone();
     *index += 1;
-    Some(next)
+    Some(next_morph)
 }
 
 /* ======================== *\
@@ -117,4 +137,26 @@ fn read_secret_file() -> SecretFile {
     let json =
         serde_json::from_str::<SecretFile>(&secret_file).expect("Failed to parse 'secret.json'");
     json
+}
+
+fn update_morph_file(dir: PathBuf, filename: &str, morph: Morph) -> () {
+    let known_file = dir.join(filename);
+    let path_string = known_file.clone().into_os_string().into_string().unwrap();
+
+    // Make sure the directory is there
+    fs::create_dir_all(dir).expect(&format!("Failed to create directory '{path_string}'"));
+
+    // Create the csv File if it doesn't exist
+    if !known_file.exists() {
+        fs::write(&known_file, "Morph-lemma,Morph-inflection\n")
+            .expect(&format!("Unable to create file '{path_string}'"));
+    }
+
+    // append the morph to the file
+    let mut file = OpenOptions::new()
+        .append(true)
+        .open(&known_file)
+        .expect("Unable to open 'known.csv'");
+    writeln!(file, "{},{}", morph.lemma, morph.inflection)
+        .expect(&format!("Unable to append to file '{path_string}'"));
 }
