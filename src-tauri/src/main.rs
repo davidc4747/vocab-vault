@@ -6,18 +6,22 @@ mod morph;
 
 use morph::Morph;
 use serde::Deserialize;
+use std::error::Error;
 use std::fs::OpenOptions;
 use std::io::prelude::Write;
 use std::path::PathBuf;
 use std::str::FromStr;
 use std::thread;
 use std::{fs, sync::Mutex};
+use tauri::http::status;
 use tauri::Manager;
 
 #[derive(Debug, Default)]
 struct Store {
     morph_list: Vec<Mutex<Morph>>,
     index: Mutex<usize>,
+    known_count: usize,
+    total_count: usize,
 }
 
 struct ApiKey(String);
@@ -27,44 +31,56 @@ struct ApiKey(String);
 \* ======================== */
 
 fn main() {
-    // Grab Known Morphs
-    let known = fs::read_to_string("../public/known_morphs-2024-08-26@12-51-37.csv")
-        .expect("know_morph csv file now found")
-        .split("\n")
-        .skip(1)
-        .filter_map(|text| Morph::from_str(text).ok())
-        .map(|morph| morph.inflection)
-        .collect::<Vec<String>>();
-
-    // Grab frequency file
-    let morph_list = fs::read_to_string("../public/es-freq.csv")
-        .expect("frequency csv file now found")
-        .split("\n")
-        .skip(1)
-        .filter_map(|text| Morph::from_str(text).ok())
-        .filter(|morph| {
-            // make sure it's not in the "known.csv"
-            morph.lemma == morph.inflection && !known.contains(&morph.inflection)
-        })
-        .map(|m| Mutex::new(m.clone()))
-        .collect::<Vec<Mutex<Morph>>>();
-
-    // Get the Translation for the first word
-    let deepl_api_key = read_secret_file().DEEPL_API_KEY;
-    if let Some(m) = morph_list.get(0) {
-        let mut morph = m.lock().unwrap();
-        tauri::async_runtime::block_on(async {
-            morph.english = deepl::translate(&deepl_api_key, &morph.inflection).await;
-        });
-    }
-
     tauri::Builder::default()
-        .manage(ApiKey(deepl_api_key))
-        .manage(Store {
-            morph_list: morph_list,
-            index: Mutex::new(0),
+        .setup(|app| {
+            // Path to local data
+            let data_dir = app.path_resolver().app_data_dir().unwrap_or_default();
+
+            // Grab Known Morphs
+            let known = csv_to_morphlist(
+                &fs::read_to_string(data_dir.join("known.csv")).unwrap_or_default(),
+            );
+            let unknown = csv_to_morphlist(
+                &fs::read_to_string(data_dir.join("unknown.csv")).unwrap_or_default(),
+            );
+            println!("{known:?}");
+
+            // Grab frequency file, Place Morphs into Mutex
+            let morph_list = fs::read_to_string("../public/es-freq.csv")
+                .expect("frequency csv file now found")
+                .split("\n")
+                .skip(1)
+                .filter_map(|text| Morph::from_str(text).ok())
+                .filter(|morph| {
+                    // make sure it's not in the "known.csv"
+                    morph.lemma == morph.inflection
+                        && !known.contains(&morph.inflection)
+                        && !unknown.contains(&morph.inflection)
+                })
+                .map(|m| Mutex::new(m.clone()))
+                .collect::<Vec<Mutex<Morph>>>();
+            let total_count = morph_list.len();
+
+            // Get the Translation for the first word
+            let deepl_api_key = read_secret_file().DEEPL_API_KEY;
+            if let Some(m) = morph_list.get(0) {
+                let mut morph = m.lock().unwrap();
+                tauri::async_runtime::block_on(async {
+                    morph.english = deepl::translate(&deepl_api_key, &morph.inflection).await;
+                });
+            }
+
+            // Initalize State
+            app.manage(ApiKey(deepl_api_key));
+            app.manage(Store {
+                morph_list: morph_list,
+                index: Mutex::new(0),
+                known_count: known.len(),
+                total_count,
+            });
+            Ok(())
         })
-        .invoke_handler(tauri::generate_handler![answer])
+        .invoke_handler(tauri::generate_handler![answer, get_known_count])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
@@ -139,23 +155,32 @@ fn read_secret_file() -> SecretFile {
     json
 }
 
+fn csv_to_morphlist(file_content: &str) -> Vec<String> {
+    file_content
+        .split("\n")
+        .skip(1)
+        .filter_map(|text| Morph::from_str(text).ok())
+        .map(|morph| morph.inflection)
+        .collect::<Vec<String>>()
+}
+
 fn update_morph_file(dir: PathBuf, filename: &str, morph: Morph) -> () {
-    let known_file = dir.join(filename);
-    let path_string = known_file.clone().into_os_string().into_string().unwrap();
+    let file = dir.join(filename);
+    let path_string = file.clone().into_os_string().into_string().unwrap();
 
     // Make sure the directory is there
     fs::create_dir_all(dir).expect(&format!("Failed to create directory '{path_string}'"));
 
     // Create the csv File if it doesn't exist
-    if !known_file.exists() {
-        fs::write(&known_file, "Morph-lemma,Morph-inflection\n")
+    if !file.exists() {
+        fs::write(&file, "Morph-lemma,Morph-inflection\n")
             .expect(&format!("Unable to create file '{path_string}'"));
     }
 
     // append the morph to the file
     let mut file = OpenOptions::new()
         .append(true)
-        .open(&known_file)
+        .open(&file)
         .expect("Unable to open 'known.csv'");
     writeln!(file, "{},{}", morph.lemma, morph.inflection)
         .expect(&format!("Unable to append to file '{path_string}'"));
