@@ -20,8 +20,8 @@ let state: State;
 \* ======================== */
 
 async function answer(state: State, isCorrect: boolean): Promise<State> {
-    // TODO: Mark the value as correct, or incorrect.
-    // TODO: Send it back to Rust.
+    // Mark the value as correct, or incorrect
+    //      Ask for the next value
     const morph = await answerCard(isCorrect);
 
     return {
@@ -99,7 +99,9 @@ window.addEventListener("DOMContentLoaded", async function (): Promise<void> {
 \* ======================== */
 
 function render({ currMorph, questionState }: State): void {
-    rawElem?.replaceChildren(JSON.stringify(currMorph));
+    // NOTE: this element is just here for debugging [DC]
+    // rawElem?.replaceChildren("");
+
     if (mainElem) mainElem.className = `main--${questionState}`;
     switch (questionState) {
         case QuestionState.FRONT:

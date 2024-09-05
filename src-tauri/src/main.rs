@@ -6,22 +6,18 @@ mod morph;
 
 use morph::Morph;
 use serde::Deserialize;
-use std::error::Error;
 use std::fs::OpenOptions;
 use std::io::prelude::Write;
 use std::path::PathBuf;
 use std::str::FromStr;
 use std::thread;
 use std::{fs, sync::Mutex};
-use tauri::http::status;
 use tauri::Manager;
 
 #[derive(Debug, Default)]
 struct Store {
     morph_list: Vec<Mutex<Morph>>,
     index: Mutex<usize>,
-    known_count: usize,
-    total_count: usize,
 }
 
 struct ApiKey(String);
@@ -43,7 +39,6 @@ fn main() {
             let unknown = csv_to_morphlist(
                 &fs::read_to_string(data_dir.join("unknown.csv")).unwrap_or_default(),
             );
-            println!("{known:?}");
 
             // Grab frequency file, Place Morphs into Mutex
             let morph_list = fs::read_to_string("../public/es-freq.csv")
@@ -59,7 +54,6 @@ fn main() {
                 })
                 .map(|m| Mutex::new(m.clone()))
                 .collect::<Vec<Mutex<Morph>>>();
-            let total_count = morph_list.len();
 
             // Get the Translation for the first word
             let deepl_api_key = read_secret_file().DEEPL_API_KEY;
@@ -75,12 +69,10 @@ fn main() {
             app.manage(Store {
                 morph_list: morph_list,
                 index: Mutex::new(0),
-                known_count: known.len(),
-                total_count,
             });
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![answer, get_known_count])
+        .invoke_handler(tauri::generate_handler![answer])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
