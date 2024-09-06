@@ -62,22 +62,63 @@ window.addEventListener("DOMContentLoaded", async function (): Promise<void> {
     correctBtn = document.querySelector<HTMLButtonElement>(".btn-correct");
     incorrectBtn = document.querySelector<HTMLButtonElement>(".btn-incorrect");
 
+    // shortcut dialog
+    const dialog =
+        document.querySelector<HTMLDialogElement>(".shortcut-dialog");
+
     /* ------------------------ *\
         #Events
     \* ------------------------ */
 
-    showAnswerBtn?.addEventListener("click", () => {
+    function handleShow(): void {
         state = showAnswer(state);
         render(state);
-    });
+    }
 
-    incorrectBtn?.addEventListener("click", async () => {
-        state = await answer(state, false);
-        render(state);
-    });
-    correctBtn?.addEventListener("click", async () => {
+    async function handleCorrect(): Promise<void> {
         state = await answer(state, true);
         render(state);
+    }
+
+    async function handleIncorrect(): Promise<void> {
+        state = await answer(state, false);
+        render(state);
+    }
+
+    function handleShortcutDialog(): void {
+        if (dialog) {
+            if (!dialog.open) dialog.showModal();
+            else dialog.close();
+        }
+    }
+
+    showAnswerBtn?.addEventListener("click", handleShow);
+
+    incorrectBtn?.addEventListener("click", handleIncorrect);
+    correctBtn?.addEventListener("click", handleCorrect);
+
+    dialog?.addEventListener("click", handleShortcutDialog);
+
+    // Key Binds
+    document.addEventListener("keyup", function (e: KeyboardEvent) {
+        switch (e.key) {
+            case "?":
+                handleShortcutDialog();
+                break;
+
+            case " ":
+            case "ArrowDown":
+                handleShow();
+                break;
+            case "1":
+            case "ArrowLeft":
+                handleIncorrect();
+                break;
+            case "2":
+            case "ArrowRight":
+                handleCorrect();
+                break;
+        }
     });
 
     /* ------------------------ *\

@@ -9,7 +9,6 @@
         <script type="module" src="./src/main.ts" defer></script>
     </head>
     <body>
-        <div class="raw"></div>
         <main class="main">
             <div class="spanish"></div>
             <div class="english"></div>
@@ -19,5 +18,32 @@
             <button class="btn btn-incorrect hidden">Incorrect</button>
             <button class="btn btn-correct hidden">Correct</button>
         </footer>
+
+        <dialog class="shortcut-dialog">
+            <h1 class="dialog-header">Keyboard shortcuts</h1>
+            <ul>
+                <li class="keybind">
+                    <span class="description">Shortcut Help</span>
+                    <span class="key">?</span>
+                </li>
+                <li class="keybind">
+                    <span class="description">Show Answer</span>
+                    <span class="key">Space</span>
+                    <span class="key">DownArrow</span>
+                </li>
+                <li class="keybind">
+                    <span class="description">Incorrect</span>
+                    <span class="key">1</span>
+                    <span class="key">LeftArrow</span>
+                </li>
+                <li class="keybind">
+                    <span class="description">Correct</span>
+                    <span class="key">2</span>
+                    <span class="key">RightArrow</span>
+                </li>
+            </ul>
+        </dialog>
+
+        <div class="raw"></div>
     </body>
 </html>
