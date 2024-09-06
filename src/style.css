@@ -76,10 +76,6 @@ body {
     background-color: var(--background);
 }
 
-.raw {
-    position: absolute;
-}
-
 /* ======================== *\
     #Main
 \* ======================== */

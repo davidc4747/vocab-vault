@@ -42,8 +42,7 @@ function showAnswer(state: State): State {
     #Init
 \* ======================== */
 
-let rawElem: Element | null,
-    mainElem: Element | null,
+let mainElem: Element | null,
     spanishElem: Element | null,
     englishElem: Element | null,
     showAnswerBtn: HTMLButtonElement | null,
@@ -52,7 +51,6 @@ let rawElem: Element | null,
 window.addEventListener("DOMContentLoaded", async function (): Promise<void> {
     // Main
     mainElem = document.body.querySelector(".main");
-    rawElem = document.body.querySelector(".raw");
     spanishElem = document.querySelector(".spanish");
     englishElem = document.querySelector(".english");
 
@@ -140,9 +138,6 @@ window.addEventListener("DOMContentLoaded", async function (): Promise<void> {
 \* ======================== */
 
 function render({ currMorph, questionState }: State): void {
-    // NOTE: this element is just here for debugging [DC]
-    // rawElem?.replaceChildren("");
-
     if (mainElem) mainElem.className = `main--${questionState}`;
     switch (questionState) {
         case QuestionState.FRONT:
@@ -171,9 +166,6 @@ function render({ currMorph, questionState }: State): void {
             showAnswerBtn?.classList.add("hidden");
             incorrectBtn?.classList.remove("hidden");
             correctBtn?.classList.remove("hidden");
-            break;
-
-        default:
             break;
     }
 }
