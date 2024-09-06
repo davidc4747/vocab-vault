@@ -6,7 +6,7 @@ Tool to help manually create a spanish "known morphs" file for [AnkiMorphs](http
 
 ### Output Location
 
-**Windows** ‒ `C:\Users\{Username}\AppData\Roaming\davidchung.freq-selector\`
+**Windows** ‒ `C:\Users\{Username}\AppData\Roaming\davidchung.vocab-vault\`
 
 **Mac** ‒ `??`
 
