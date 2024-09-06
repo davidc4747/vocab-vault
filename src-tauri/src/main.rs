@@ -12,7 +12,7 @@ use std::path::PathBuf;
 use std::str::FromStr;
 use std::thread;
 use std::{fs, sync::Mutex};
-use tauri::Manager;
+use tauri::{Manager, PathResolver};
 
 #[derive(Debug, Default)]
 struct Store {
@@ -30,7 +30,8 @@ fn main() {
     tauri::Builder::default()
         .setup(|app| {
             // Path to local data
-            let data_dir = app.path_resolver().app_data_dir().unwrap_or_default();
+            let path_resolver = app.path_resolver();
+            let data_dir = path_resolver.app_data_dir().unwrap_or_default();
 
             // Grab Known Morphs
             let known = csv_to_morphlist(
@@ -41,8 +42,11 @@ fn main() {
             );
 
             // Grab frequency file, Place Morphs into Mutex
-            let morph_list = fs::read_to_string("../public/es-freq.csv")
-                .expect("frequency csv file now found")
+            let freq_file = path_resolver
+                .resolve_resource("../public/es-freq.csv")
+                .expect("Failed to find 'es-freq.csv'");
+            let morph_list = fs::read_to_string(freq_file)
+                .expect("Failed to read file 'es-freq.csv'")
                 .split("\n")
                 .skip(1)
                 .filter_map(|text| Morph::from_str(text).ok())
@@ -56,7 +60,7 @@ fn main() {
                 .collect::<Vec<Mutex<Morph>>>();
 
             // Get the Translation for the first word
-            let deepl_api_key = read_secret_file().DEEPL_API_KEY;
+            let deepl_api_key = read_secret_file(path_resolver).DEEPL_API_KEY;
             if let Some(m) = morph_list.get(0) {
                 let mut morph = m.lock().unwrap();
                 tauri::async_runtime::block_on(async {
@@ -139,9 +143,11 @@ struct SecretFile {
     DEEPL_API_KEY: String,
 }
 
-fn read_secret_file() -> SecretFile {
-    let secret_file =
-        fs::read_to_string("../secret.json").expect("Failed to find file 'secret.json'");
+fn read_secret_file(resolver: PathResolver) -> SecretFile {
+    let file = resolver
+        .resolve_resource("../public/secret.json")
+        .expect("Failed to find file 'secret.json'");
+    let secret_file = fs::read_to_string(file).expect("Failed to read file 'secret.json'");
     let json =
         serde_json::from_str::<SecretFile>(&secret_file).expect("Failed to parse 'secret.json'");
     json
